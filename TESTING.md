@@ -114,7 +114,8 @@ Testar: seleciona os registros certos, ignora os que não devem (ex.: já devolv
 - Um arquivo por história: `tests/e2e/us09-consulta-acervo.spec.ts`.
 - Usar seletores por papel e texto (`getByRole('button', { name: 'Registrar empréstimo' })`), nunca classes CSS.
 - Histórias de celular (US09, US10, US11) rodam também no projeto Playwright `mobile` (viewport de celular).
-- Login por helper `loginAs('bibliotecaria')`, que usa usuários do seed de teste.
+- O servidor de E2E sobe com PGlite em memória, `DEV_SESSION_ROLE=bibliotecaria` (sessão de desenvolvimento até o login da T3.1) e `E2E_FIXTURES=1`, que carrega o cenário de `src/db/seed-e2e.ts` (datas relativas a hoje). Quando o login existir, trocar por um helper `loginAs(perfil)`.
+- Nas Server Actions dos testes de integração, use `setTestDeps({ db, clock })` e `loginAs(usuario)` de `tests/support/`.
 
 ## 5. Cobertura
 
