@@ -19,7 +19,12 @@ export default defineConfig({
     command: 'npm run dev -- --port 3100',
     url: 'http://localhost:3100',
     reuseExistingServer: !process.env.CI,
-    env: { DATABASE_URL: '', PGLITE_DIR: 'memory://', MESSAGE_SENDER: 'fake', E2E_SEED: '1' },
+    env: {
+      DATABASE_URL: '',
+      PGLITE_DIR: 'memory://',
+      MESSAGE_SENDER: 'fake',
+      DEV_SESSION_ROLE: 'bibliotecaria',
+    },
     timeout: 120_000,
   },
 })
