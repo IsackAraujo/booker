@@ -60,4 +60,11 @@ export async function seedE2E(db: Db) {
       createdBy: roseli!.id,
     },
   ])
+
+  // US10: livro exclusivo do teste de reserva para turma, com 3 exemplares disponíveis.
+  const [reserva] = await db
+    .insert(s.books)
+    .values({ title: 'Livro Reserva E2E', author: 'Autor E2E', category: 'Literatura', ageRange: '8-10' })
+    .returning()
+  await db.insert(s.copies).values([1, 2, 3].map((n) => ({ bookId: reserva!.id, code: `E2E-RES-${n}` })))
 }

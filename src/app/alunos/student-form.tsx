@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react'
 import { FormMessage } from '@/components/form-message'
+import { keepValues } from '@/components/keep-values'
 import { idle } from '@/lib/action'
 import { saveStudentAction } from '@/modules/students/actions'
 
@@ -13,7 +14,7 @@ export function StudentForm({ student }: Props) {
   const [state, action, pending] = useActionState(saveStudentAction, idle)
 
   return (
-    <form action={action} className="card max-w-lg space-y-3">
+    <form onSubmit={keepValues(action)} className="card max-w-lg space-y-3">
       {student && <input type="hidden" name="id" value={student.id} />}
       <Field label="Matrícula" name="registration" defaultValue={student?.registration} />
       <Field label="Nome do aluno" name="name" defaultValue={student?.name} />
