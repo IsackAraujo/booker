@@ -28,3 +28,16 @@ export function fixedClock(isoDate: IsoDate, time = '10:00'): Clock {
   const instant = new TZDate(y, m - 1, d, hh, mm, 0, SCHOOL_TZ)
   return { now: () => new Date(instant.getTime()), today: () => isoDate }
 }
+
+/** Instante em que o dia começa no fuso da escola (00:00 em São Paulo). */
+export function startOfSchoolDay(date: IsoDate): Date {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number]
+  return new Date(new TZDate(y, m - 1, d, 0, 0, 0, SCHOOL_TZ).getTime())
+}
+
+/** Intervalo [início do dia `from`, início do dia seguinte a `to`) para filtrar timestamps por período. */
+export function schoolDayRange(from: IsoDate, to: IsoDate): { start: Date; end: Date } {
+  const [y, m, d] = to.split('-').map(Number) as [number, number, number]
+  const end = new Date(new TZDate(y, m - 1, d + 1, 0, 0, 0, SCHOOL_TZ).getTime())
+  return { start: startOfSchoolDay(from), end }
+}

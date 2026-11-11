@@ -9,6 +9,9 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.ts'],
     setupFiles: ['./tests/support/setup.ts'],
+    // O primeiro banco PGlite de cada arquivo aplica as migrações; com cobertura e em paralelo pode passar de 10s.
+    hookTimeout: 30_000,
+    testTimeout: 15_000,
     env: { TZ: 'America/Sao_Paulo' },
     coverage: {
       provider: 'v8',
