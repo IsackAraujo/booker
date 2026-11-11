@@ -10,7 +10,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { width: 'device-width', initialScale: 1 }
 
 // Cada história acrescenta aqui a sua entrada de menu.
-const nav: { href: string; label: string }[] = [{ href: '/alunos', label: 'Alunos' }]
+const nav: { href: string; label: string }[] = [
+  { href: '/alunos', label: 'Alunos' },
+  { href: '/balcao/devolucao', label: 'Devolução' },
+]
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
