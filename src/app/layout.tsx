@@ -13,6 +13,7 @@ export const viewport: Viewport = { width: 'device-width', initialScale: 1 }
 const nav: { href: string; label: string }[] = [
   { href: '/alunos', label: 'Alunos' },
   { href: '/balcao/devolucao', label: 'Devolução' },
+  { href: '/atrasos', label: 'Atrasos' },
 ]
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

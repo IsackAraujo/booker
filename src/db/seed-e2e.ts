@@ -4,7 +4,8 @@ import * as s from './schema'
 import type { Db } from './types'
 
 /**
- * Dados de cenário para os testes E2E (E2E_FIXTURES=1), relativos à data de hoje.
+ * Dados de cenário para os testes E2E. Cada spec usa os seus registros, porque os specs rodam em paralelo no mesmo banco.
+ * Dados (E2E_FIXTURES=1), relativos à data de hoje.
  * Empréstimos são inseridos direto no banco porque o registro de empréstimo é a US04 (SEB-8).
  */
 export async function seedE2E(db: Db) {
@@ -18,19 +19,21 @@ export async function seedE2E(db: Db) {
     .insert(s.books)
     .values({ title: 'Livro E2E', author: 'Autora E2E', category: 'Literatura', ageRange: '8-10' })
     .returning()
-  const [atrasado, noPrazo] = await db
+  const [atrasado, noPrazo, , cobranca] = await db
     .insert(s.copies)
     .values([
       { bookId: book!.id, code: 'E2E-ATRASADO', status: 'emprestado' },
       { bookId: book!.id, code: 'E2E-NOPRAZO', status: 'emprestado' },
       { bookId: book!.id, code: 'E2E-LIVRE' },
+      { bookId: book!.id, code: 'E2E-COBRANCA', status: 'emprestado' },
     ])
     .returning()
-  const [raissa, bruno] = await db
+  const [raissa, bruno, clara] = await db
     .insert(s.students)
     .values([
       { registration: 'E2E-R', name: 'Raissa E2E', className: '5A', guardianPhone: '+5551999990101' },
       { registration: 'E2E-B', name: 'Bruno E2E', className: '6B', guardianPhone: '+5551999990102' },
+      { registration: 'E2E-C', name: 'Clara E2E', className: '7C', guardianPhone: '+5551999990103' },
     ])
     .returning()
   await db.insert(s.loans).values([
@@ -46,6 +49,14 @@ export async function seedE2E(db: Db) {
       studentId: bruno!.id,
       loanedAt: addDays(today, -2),
       dueDate: day(12),
+      createdBy: roseli!.id,
+    },
+    // US08: atraso exclusivo do teste de cobrança (os outros specs não mexem nele).
+    {
+      copyId: cobranca!.id,
+      studentId: clara!.id,
+      loanedAt: addDays(today, -18),
+      dueDate: day(-4),
       createdBy: roseli!.id,
     },
   ])
