@@ -1,9 +1,7 @@
 import { and, desc, eq, gte, lt } from 'drizzle-orm'
-import { addDays, format, parseISO } from 'date-fns'
-import { TZDate } from '@date-fns/tz'
 import { auditLog } from '@/db/schema'
 import type { Db } from '@/db/types'
-import { SCHOOL_TZ, type IsoDate } from '@/lib/clock'
+import { schoolDayRange, startOfSchoolDay, type IsoDate } from '@/lib/clock'
 
 export interface AuditEntry {
   userId: number
@@ -27,18 +25,10 @@ export async function append(tx: Db, entry: AuditEntry) {
   })
 }
 
-function startOfSchoolDay(date: IsoDate): Date {
-  const [y, m, d] = date.split('-').map(Number) as [number, number, number]
-  return new Date(new TZDate(y, m - 1, d, 0, 0, 0, SCHOOL_TZ).getTime())
-}
-
 export async function list(db: Db, filter: { from?: IsoDate; to?: IsoDate; userId?: number } = {}) {
   const conditions = []
   if (filter.from) conditions.push(gte(auditLog.createdAt, startOfSchoolDay(filter.from)))
-  if (filter.to) {
-    const next = format(addDays(parseISO(filter.to), 1), 'yyyy-MM-dd')
-    conditions.push(lt(auditLog.createdAt, startOfSchoolDay(next)))
-  }
+  if (filter.to) conditions.push(lt(auditLog.createdAt, schoolDayRange(filter.to, filter.to).end))
   if (filter.userId) conditions.push(eq(auditLog.userId, filter.userId))
   return db
     .select()
