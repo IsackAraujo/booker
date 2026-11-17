@@ -13,3 +13,11 @@ describe('clock', () => {
     expect(toSchoolDate(new Date('2026-03-11T01:00:00Z'))).toBe('2026-03-10')
   })
 })
+
+describe('systemClock', () => {
+  it('today() é a data de now() no fuso da escola', async () => {
+    const { systemClock } = await import('./clock')
+
+    expect(systemClock.today()).toBe(toSchoolDate(systemClock.now()))
+  })
+})
