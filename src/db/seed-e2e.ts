@@ -95,4 +95,21 @@ export async function seedE2E(db: Db) {
     dueDate: day(-6),
     createdBy: roseli!.id,
   })
+
+  // US06: aluno exclusivo do teste de transferência, com um livro emprestado.
+  const [transfer] = await db
+    .insert(s.copies)
+    .values({ bookId: emprestimo!.id, code: 'E2E-TRF-1', status: 'emprestado' })
+    .returning()
+  const [fabio] = await db
+    .insert(s.students)
+    .values({ registration: 'E2E-F', name: 'Fabio E2E', className: '8B', guardianPhone: '+5551999990106' })
+    .returning()
+  await db.insert(s.loans).values({
+    copyId: transfer!.id,
+    studentId: fabio!.id,
+    loanedAt: addDays(today, -5),
+    dueDate: day(9),
+    createdBy: roseli!.id,
+  })
 }

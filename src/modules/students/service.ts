@@ -1,9 +1,10 @@
-import { asc, eq, ilike, or, sql } from 'drizzle-orm'
-import { students } from '@/db/schema'
+import { and, asc, eq, ilike, isNull, or, sql } from 'drizzle-orm'
+import { books, copies, loans, students } from '@/db/schema'
 import type { Db } from '@/db/types'
-import type { Clock } from '@/lib/clock'
+import type { Clock, IsoDate } from '@/lib/clock'
 import { BusinessError, NotFoundError } from '@/lib/errors'
 import * as audit from '@/modules/audit/service'
+import { daysLate } from '@/modules/loans/rules'
 import { matchTemplate, validateRows, validateStudent, type RejectedRow, type StudentInput } from './rules'
 import type { Sheet } from './spreadsheet'
 
@@ -154,4 +155,130 @@ export async function searchStudents(db: Db, term = '', limit = 50): Promise<Stu
     )
     .orderBy(asc(students.className), asc(students.name))
     .limit(limit)
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// US06 Alerta de aluno transferido com livro pendente
+// ---------------------------------------------------------------------------------------------------------
+
+export interface PendingLoan {
+  loanId: number
+  copyCode: string
+  bookTitle: string
+  dueDate: IsoDate
+  daysLate: number
+}
+
+/** Livros ainda com o aluno (empréstimos sem devolução), do prazo mais antigo para o mais novo. */
+export async function pendingLoans(db: Db, clock: Clock, studentId: number): Promise<PendingLoan[]> {
+  const today = clock.today()
+  const rows = await db
+    .select({ loanId: loans.id, copyCode: copies.code, bookTitle: books.title, dueDate: loans.dueDate })
+    .from(loans)
+    .innerJoin(copies, eq(copies.id, loans.copyId))
+    .innerJoin(books, eq(books.id, copies.bookId))
+    .where(and(eq(loans.studentId, studentId), isNull(loans.returnedAt)))
+    .orderBy(asc(loans.dueDate), asc(copies.code))
+  return rows.map((r) => ({ ...r, daysLate: daysLate(r.dueDate, today) }))
+}
+
+export interface TransferResult {
+  student: Student
+  /** US06-CA1: livros que ficaram com o aluno, para a bibliotecária recuperar. */
+  pending: PendingLoan[]
+}
+
+/**
+ * Marca o aluno como transferido (US06). Devolve os livros ainda pendentes com ele (CA1). A partir daí
+ * ele não pega novos empréstimos (CA2, regra em loans/rules.canBorrow). Grava no histórico quantos livros
+ * ficaram pendentes.
+ */
+export async function markTransferred(
+  db: Db,
+  clock: Clock,
+  userId: number,
+  studentId: number,
+): Promise<TransferResult> {
+  return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(students).where(eq(students.id, studentId)).for('update')
+    if (!current) throw new NotFoundError('Aluno')
+    if (current.status === 'transferido')
+      throw new BusinessError('Este aluno já está marcado como transferido.', 'STUDENT_ALREADY_TRANSFERRED')
+    const now = clock.now()
+    const [row] = await tx
+      .update(students)
+      .set({ status: 'transferido', transferredAt: now, updatedAt: now })
+      .where(eq(students.id, studentId))
+      .returning()
+    const pending = await pendingLoans(tx, clock, studentId)
+    await audit.append(tx, {
+      userId,
+      action: 'aluno.transferir',
+      entity: 'student',
+      entityId: studentId,
+      payload: { pendentes: pending.map((p) => p.copyCode) },
+    })
+    return { student: row!, pending }
+  })
+}
+
+export interface TransferredWithPending {
+  studentId: number
+  registration: string
+  name: string
+  className: string
+  guardianPhone: string
+  transferredAt: Date | null
+  pending: PendingLoan[]
+}
+
+/**
+ * US06-CA3: alunos transferidos que ainda têm livro com eles. Quando o livro é devolvido (ou registrado
+ * como perdido na devolução), a pendência sai da lista sozinha.
+ */
+export async function transferredWithPending(db: Db, clock: Clock): Promise<TransferredWithPending[]> {
+  const today = clock.today()
+  const rows = await db
+    .select({
+      studentId: students.id,
+      registration: students.registration,
+      name: students.name,
+      className: students.className,
+      guardianPhone: students.guardianPhone,
+      transferredAt: students.transferredAt,
+      loanId: loans.id,
+      copyCode: copies.code,
+      bookTitle: books.title,
+      dueDate: loans.dueDate,
+    })
+    .from(students)
+    .innerJoin(loans, and(eq(loans.studentId, students.id), isNull(loans.returnedAt)))
+    .innerJoin(copies, eq(copies.id, loans.copyId))
+    .innerJoin(books, eq(books.id, copies.bookId))
+    .where(eq(students.status, 'transferido'))
+    .orderBy(asc(students.name), asc(loans.dueDate))
+  const byStudent = new Map<number, TransferredWithPending>()
+  for (const r of rows) {
+    const entry =
+      byStudent.get(r.studentId) ??
+      byStudent
+        .set(r.studentId, {
+          studentId: r.studentId,
+          registration: r.registration,
+          name: r.name,
+          className: r.className,
+          guardianPhone: r.guardianPhone,
+          transferredAt: r.transferredAt,
+          pending: [],
+        })
+        .get(r.studentId)!
+    entry.pending.push({
+      loanId: r.loanId,
+      copyCode: r.copyCode,
+      bookTitle: r.bookTitle,
+      dueDate: r.dueDate,
+      daysLate: daysLate(r.dueDate, today),
+    })
+  }
+  return [...byStudent.values()]
 }
