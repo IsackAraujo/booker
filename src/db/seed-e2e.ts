@@ -67,4 +67,32 @@ export async function seedE2E(db: Db) {
     .values({ title: 'Livro Reserva E2E', author: 'Autor E2E', category: 'Literatura', ageRange: '8-10' })
     .returning()
   await db.insert(s.copies).values([1, 2, 3].map((n) => ({ bookId: reserva!.id, code: `E2E-RES-${n}` })))
+
+  // US04: livro, alunos e exemplares exclusivos do teste de empréstimo.
+  const [emprestimo] = await db
+    .insert(s.books)
+    .values({ title: 'Livro Empréstimo E2E', author: 'Autor E2E', category: 'Literatura', ageRange: '8-10' })
+    .returning()
+  const [, , empAtrasado] = await db
+    .insert(s.copies)
+    .values([
+      { bookId: emprestimo!.id, code: 'E2E-EMP-1' },
+      { bookId: emprestimo!.id, code: 'E2E-EMP-2' },
+      { bookId: emprestimo!.id, code: 'E2E-EMP-ATR', status: 'emprestado' },
+    ])
+    .returning()
+  const [, eva] = await db
+    .insert(s.students)
+    .values([
+      { registration: 'E2E-D', name: 'Diego E2E', className: '4A', guardianPhone: '+5551999990104' },
+      { registration: 'E2E-E', name: 'Eva E2E', className: '4A', guardianPhone: '+5551999990105' },
+    ])
+    .returning()
+  await db.insert(s.loans).values({
+    copyId: empAtrasado!.id,
+    studentId: eva!.id,
+    loanedAt: addDays(today, -20),
+    dueDate: day(-6),
+    createdBy: roseli!.id,
+  })
 }
