@@ -13,6 +13,7 @@ export const viewport: Viewport = { width: 'device-width', initialScale: 1 }
 const nav: { href: string; label: string }[] = [
   { href: '/acervo', label: 'Acervo' },
   { href: '/alunos', label: 'Alunos' },
+  { href: '/balcao/emprestimo', label: 'Empréstimo' },
   { href: '/balcao/devolucao', label: 'Devolução' },
   { href: '/atrasos', label: 'Atrasos' },
   { href: '/reservas/turma', label: 'Reservas de turma' },
