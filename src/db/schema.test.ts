@@ -67,16 +67,14 @@ describe('Modelo de dados', () => {
 
   it('[US07-CA4] lembrete que falhou pode ser tentado de novo', async () => {
     const loan = await makeLoan(db)
-    await db
-      .insert(s.notifications)
-      .values({
-        kind: 'lembrete',
-        loanId: loan.id,
-        phone: '+55',
-        body: 'x',
-        status: 'falhou',
-        error: 'timeout',
-      })
+    await db.insert(s.notifications).values({
+      kind: 'lembrete',
+      loanId: loan.id,
+      phone: '+55',
+      body: 'x',
+      status: 'falhou',
+      error: 'timeout',
+    })
 
     await expect(
       db

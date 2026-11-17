@@ -19,10 +19,9 @@ async function connect(): Promise<Db> {
   const client = new PGlite(process.env.PGLITE_DIR || './.pglite')
   const db = drizzlePglite(client, { schema, casing: 'snake_case' })
   await migratePglite(db, { migrationsFolder })
-  if (process.env.E2E_SEED) {
-    const { seed } = await import('./seed')
-    await seed(db as unknown as Db)
-  }
+  // Banco local de desenvolvimento/E2E: garante os usuários do seed (idempotente).
+  const { seed } = await import('./seed')
+  await seed(db as unknown as Db)
   return db as unknown as Db
 }
 
