@@ -6,7 +6,7 @@ import { currentUser, type Role, type SessionUser } from '@/lib/session'
  */
 export async function guardPage(
   ...roles: Role[]
-): Promise<{ user: SessionUser; denied: null } | { user: null; denied: React.ReactNode }> {
+): Promise<{ user: SessionUser; denied: null } | { user: null; denied: React.ReactElement }> {
   const user = await currentUser()
   if (!user) return { user: null, denied: <Denied text="É preciso entrar no sistema." /> }
   if (!roles.includes(user.role))

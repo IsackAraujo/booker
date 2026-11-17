@@ -14,6 +14,7 @@ const nav: { href: string; label: string }[] = [
   { href: '/alunos', label: 'Alunos' },
   { href: '/balcao/devolucao', label: 'Devolução' },
   { href: '/atrasos', label: 'Atrasos' },
+  { href: '/reservas/turma', label: 'Reservas de turma' },
 ]
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
