@@ -9,7 +9,9 @@ import type { Db } from './types'
 
 export const migrationsFolder = path.join(process.cwd(), 'src/db/migrations')
 
-let instance: Promise<Db> | undefined
+// Guardado no globalThis: no Next, páginas e Server Actions podem carregar cópias diferentes deste módulo,
+// e com PGlite em memória cada cópia teria um banco próprio.
+const globalForDb = globalThis as unknown as { __bookerDb?: Promise<Db> }
 
 async function connect(): Promise<Db> {
   const url = process.env.DATABASE_URL
@@ -22,11 +24,15 @@ async function connect(): Promise<Db> {
   // Banco local de desenvolvimento/E2E: garante os usuários do seed (idempotente).
   const { seed } = await import('./seed')
   await seed(db as unknown as Db)
+  if (process.env.E2E_FIXTURES) {
+    const { seedE2E } = await import('./seed-e2e')
+    await seedE2E(db as unknown as Db)
+  }
   return db as unknown as Db
 }
 
 /** Conexão única por processo. */
 export function getDb(): Promise<Db> {
-  instance ??= connect()
-  return instance
+  globalForDb.__bookerDb ??= connect()
+  return globalForDb.__bookerDb
 }

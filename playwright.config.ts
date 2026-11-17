@@ -24,6 +24,7 @@ export default defineConfig({
       PGLITE_DIR: 'memory://',
       MESSAGE_SENDER: 'fake',
       DEV_SESSION_ROLE: 'bibliotecaria',
+      E2E_FIXTURES: '1',
     },
     timeout: 120_000,
   },
