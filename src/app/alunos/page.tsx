@@ -15,7 +15,10 @@ export default async function AlunosPage({ searchParams }: { searchParams: Promi
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Alunos</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link href="/alunos/transferidos" className="btn-secondary">
+            Transferidos com pendência
+          </Link>
           <Link href="/alunos/importar" className="btn-secondary">
             Importar planilha
           </Link>

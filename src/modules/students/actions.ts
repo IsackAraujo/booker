@@ -68,3 +68,19 @@ export async function saveStudentAction(
     return saved
   }, 'Aluno salvo.')
 }
+
+/** US06: marca o aluno como transferido e devolve os livros pendentes com ele. */
+export async function markTransferredAction(
+  _prev: ActionState<service.TransferResult>,
+  form: FormData,
+): Promise<ActionState<service.TransferResult>> {
+  return runAction(async () => {
+    const user = await requireRole('bibliotecaria')
+    const studentId = z.coerce.number().int().positive().safeParse(form.get('studentId'))
+    if (!studentId.success) throw new BusinessError('Aluno não informado.', 'NO_ID')
+    const { db, clock } = await getDeps()
+    const result = await service.markTransferred(db, clock, user.id, studentId.data)
+    revalidatePath('/alunos')
+    return result
+  }, 'Aluno marcado como transferido.')
+}
