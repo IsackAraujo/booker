@@ -21,6 +21,7 @@ export async function loginAction(_prev: ActionState<null>, form: FormData): Pro
     const { db, clock } = await getDeps()
     const user = await service.authenticate(
       db,
+      clock,
       String(form.get('email') ?? ''),
       String(form.get('password') ?? ''),
     )

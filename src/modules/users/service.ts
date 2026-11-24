@@ -1,7 +1,8 @@
 import bcrypt from 'bcryptjs'
-import { and, asc, eq, ne } from 'drizzle-orm'
-import { users } from '@/db/schema'
+import { and, asc, count, eq, gte, ne } from 'drizzle-orm'
+import { loginFailures, users } from '@/db/schema'
 import type { Db } from '@/db/types'
+import type { Clock } from '@/lib/clock'
 import { BusinessError, NotFoundError } from '@/lib/errors'
 import type { Role, SessionUser } from '@/lib/session'
 import * as audit from '@/modules/audit/service'
@@ -13,14 +14,36 @@ export const LOGIN_FAILED = 'E-mail ou senha incorretos.'
 let dummyHash: string | undefined
 const getDummyHash = () => (dummyHash ??= bcrypt.hashSync('senha-que-ninguem-usa', 10))
 
-/** T3.1: confere e-mail e senha. Usuário desativado não entra. Mensagem única para qualquer falha. */
-export async function authenticate(db: Db, email: string, password: string): Promise<SessionUser | null> {
-  const [u] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, normalizeEmail(email)))
+/** SEB-52: depois de MAX_FAILURES erros em LOCK_MINUTES minutos, o e-mail fica bloqueado por LOCK_MINUTES minutos. */
+export const MAX_FAILURES = 5
+export const LOCK_MINUTES = 15
+export const LOGIN_LOCKED = `Muitas tentativas com senha errada. Tente de novo em ${LOCK_MINUTES} minutos ou peça à bibliotecária para redefinir a senha.`
+
+/**
+ * T3.1: confere e-mail e senha. Usuário desativado não entra. Mensagem única para qualquer falha.
+ * SEB-52: conta os erros por e-mail (inclusive e-mail que não existe) e bloqueia por um tempo quem erra demais.
+ */
+export async function authenticate(
+  db: Db,
+  clock: Clock,
+  email: string,
+  password: string,
+): Promise<SessionUser | null> {
+  const normalized = normalizeEmail(email)
+  const since = new Date(clock.now().getTime() - LOCK_MINUTES * 60 * 1000)
+  const [recent] = await db
+    .select({ n: count() })
+    .from(loginFailures)
+    .where(and(eq(loginFailures.email, normalized), gte(loginFailures.createdAt, since)))
+  if ((recent?.n ?? 0) >= MAX_FAILURES) throw new BusinessError(LOGIN_LOCKED, 'LOGIN_LOCKED')
+
+  const [u] = await db.select().from(users).where(eq(users.email, normalized))
   const ok = await bcrypt.compare(password, u?.passwordHash ?? getDummyHash())
-  if (!u || !ok || !u.active) return null
+  if (!u || !ok || !u.active) {
+    await db.insert(loginFailures).values({ email: normalized, createdAt: clock.now() })
+    return null
+  }
+  await db.delete(loginFailures).where(eq(loginFailures.email, normalized))
   return { id: u.id, name: u.name, role: u.role }
 }
 

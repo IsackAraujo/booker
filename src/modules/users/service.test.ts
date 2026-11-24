@@ -3,9 +3,11 @@ import { eq } from 'drizzle-orm'
 import { createTestDb, type TestDb } from '@tests/support/db'
 import { makeUser } from '@tests/factories'
 import { auditLog, users } from '@/db/schema'
+import { fixedClock } from '@/lib/clock'
 import { validateUser } from './rules'
 import * as service from './service'
 
+const clock = fixedClock('2026-11-24', '09:00')
 let db: TestDb
 let admin: { id: number }
 beforeEach(async () => {
@@ -39,7 +41,7 @@ describe('T3.1 Login', () => {
   it('[US03-CA1] entra com e-mail e senha certos, sem diferenciar maiúsculas no e-mail', async () => {
     await service.createUser(db, admin.id, valid)
 
-    expect(await service.authenticate(db, 'SANDRA@escola.edu.br', 'segredo123')).toMatchObject({
+    expect(await service.authenticate(db, clock, 'SANDRA@escola.edu.br', 'segredo123')).toMatchObject({
       name: 'Sandra',
       role: 'bibliotecaria',
     })
@@ -51,14 +53,14 @@ describe('T3.1 Login', () => {
   ])('recusa %s / senha errada ou e-mail desconhecido', async (email, password) => {
     await service.createUser(db, admin.id, valid)
 
-    expect(await service.authenticate(db, email, password)).toBeNull()
+    expect(await service.authenticate(db, clock, email, password)).toBeNull()
   })
 
   it('usuário desativado não entra e a sessão dele deixa de valer', async () => {
     const u = await service.createUser(db, admin.id, valid)
     await service.setUserActive(db, admin.id, u.id, false)
 
-    expect(await service.authenticate(db, 'sandra@escola.edu.br', 'segredo123')).toBeNull()
+    expect(await service.authenticate(db, clock, 'sandra@escola.edu.br', 'segredo123')).toBeNull()
     expect(await service.activeUser(db, u.id)).toBeNull()
   })
 
@@ -131,8 +133,8 @@ describe('US03 Gestão de acessos', () => {
 
     await service.resetPassword(db, admin.id, u.id, 'novasenha9')
 
-    expect(await service.authenticate(db, 'sandra@escola.edu.br', 'segredo123')).toBeNull()
-    expect(await service.authenticate(db, 'sandra@escola.edu.br', 'novasenha9')).not.toBeNull()
+    expect(await service.authenticate(db, clock, 'sandra@escola.edu.br', 'segredo123')).toBeNull()
+    expect(await service.authenticate(db, clock, 'sandra@escola.edu.br', 'novasenha9')).not.toBeNull()
   })
 
   it('redefinir com senha curta ou para usuário inexistente', async () => {
@@ -149,5 +151,50 @@ describe('US03 Gestão de acessos', () => {
     await service.createUser(db, admin.id, { ...valid, name: 'Ana', email: 'ana@x.com' })
 
     expect((await service.listUsers(db)).map((u) => u.name)).toEqual(['Ana', 'Roseli'])
+  })
+})
+
+describe('SEB-52 Limite de tentativas de login', () => {
+  async function tryWrong(times: number, at = clock) {
+    for (let i = 0; i < times; i++)
+      expect(await service.authenticate(db, at, 'sandra@escola.edu.br', 'errada')).toBeNull()
+  }
+
+  it('bloqueia o e-mail depois de 5 senhas erradas, mesmo com a senha certa', async () => {
+    await service.createUser(db, admin.id, valid)
+    await tryWrong(service.MAX_FAILURES)
+
+    await expect(service.authenticate(db, clock, 'sandra@escola.edu.br', 'segredo123')).rejects.toMatchObject(
+      {
+        code: 'LOGIN_LOCKED',
+      },
+    )
+  })
+
+  it('libera depois de 15 minutos', async () => {
+    await service.createUser(db, admin.id, valid)
+    await tryWrong(service.MAX_FAILURES)
+
+    const later = fixedClock('2026-11-24', '09:16')
+    expect(await service.authenticate(db, later, 'sandra@escola.edu.br', 'segredo123')).not.toBeNull()
+  })
+
+  it('login certo zera a contagem', async () => {
+    await service.createUser(db, admin.id, valid)
+    await tryWrong(service.MAX_FAILURES - 1)
+    await service.authenticate(db, clock, 'sandra@escola.edu.br', 'segredo123')
+
+    await tryWrong(service.MAX_FAILURES - 1)
+    expect(await service.authenticate(db, clock, 'sandra@escola.edu.br', 'segredo123')).not.toBeNull()
+  })
+
+  it('conta também e-mail que não existe e não afeta outros e-mails', async () => {
+    await service.createUser(db, admin.id, valid)
+    for (let i = 0; i < service.MAX_FAILURES; i++) await service.authenticate(db, clock, 'NINGUEM@x.com', 'x')
+
+    await expect(service.authenticate(db, clock, 'ninguem@x.com', 'x')).rejects.toMatchObject({
+      code: 'LOGIN_LOCKED',
+    })
+    expect(await service.authenticate(db, clock, 'sandra@escola.edu.br', 'segredo123')).not.toBeNull()
   })
 })
