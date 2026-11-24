@@ -1,0 +1,27 @@
+name: Lembretes diários
+
+# T7.2 (US07): chama a rotina de lembretes todo dia às 08:00 de Brasília (11:00 UTC).
+# Precisa dos secrets APP_URL (endereço público do site) e CRON_SECRET (o mesmo do servidor).
+# Também pode ser disparado à mão em Actions > Lembretes diários > Run workflow.
+
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+
+jobs:
+  lembretes:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Chama /api/cron/lembretes
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::warning::Configure os secrets APP_URL e CRON_SECRET para ligar os lembretes."
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --max-time 120 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -X POST "${APP_URL%/}/api/cron/lembretes"

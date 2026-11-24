@@ -207,10 +207,12 @@ interface MessageSender {
 ### Rotinas diárias
 | Rota | Horário sugerido | Faz |
 |---|---|---|
-| `POST /api/cron/lembretes` | 08:00 | envia lembretes de empréstimos que vencem em `reminder_days_before` dias (US07) |
-| `POST /api/cron/reservas` | 07:00 | expira separações vencidas e avisa o próximo da fila (US12) |
+| `GET`/`POST /api/cron/lembretes` | 08:00 | envia lembretes de empréstimos abertos com prazo entre amanhã e `reminder_days_before` dias, ainda sem lembrete enviado (US07) |
+| `POST /api/cron/reservas` | 07:00 | expira separações vencidas e avisa o próximo da fila (US12, a fazer) |
 
-Protegidas por `Authorization: Bearer $CRON_SECRET`. São **idempotentes**: rodar duas vezes no mesmo dia não envia nada em dobro.
+Protegidas por `Authorization: Bearer $CRON_SECRET`. São **idempotentes**: rodar duas vezes no mesmo dia não envia nada em dobro (o índice único de `notifications` segura até duas execuções simultâneas). A janela do lembrete cobre os dias em que a rotina não rodou; falhas (por exemplo, responsável sem Telegram) ficam em `/avisos` e são tentadas de novo na execução seguinte.
+
+**Agendador:** `.github/workflows/lembretes.yml` chama a rota todo dia às 11:00 UTC (08:00 de Brasília), usando os secrets `APP_URL` e `CRON_SECRET` do repositório. Sem os secrets, o workflow só emite um aviso. Também pode ser disparado à mão.
 
 ### Relógio
 Nenhum código de negócio chama `new Date()` direto. Use `clock.today()` / `clock.now()` de `src/lib/clock.ts`; em teste injeta-se `fixedClock('2026-03-10')`.

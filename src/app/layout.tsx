@@ -16,6 +16,7 @@ const nav: { href: string; label: string }[] = [
   { href: '/balcao/emprestimo', label: 'Empréstimo' },
   { href: '/balcao/devolucao', label: 'Devolução' },
   { href: '/atrasos', label: 'Atrasos' },
+  { href: '/avisos', label: 'Avisos' },
   { href: '/reservas/turma', label: 'Reservas de turma' },
   { href: '/painel', label: 'Painel' },
 ]

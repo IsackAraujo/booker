@@ -18,7 +18,7 @@ test('US10 professora reserva para a turma e a bibliotecária vê no dia @mobile
   await useRole(context, 'professor')
   await page.goto('/reservas/turma')
 
-  await page.getByLabel('Livro').selectOption({ label: 'Livro Reserva E2E — Autor E2E' })
+  await page.getByRole('combobox', { name: 'Livro' }).selectOption({ label: 'Livro Reserva E2E — Autor E2E' })
   await page.getByLabel('Data da atividade').fill(day)
   await expect(page.getByText('Disponíveis nesta data: 3')).toBeVisible()
 

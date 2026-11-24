@@ -158,13 +158,39 @@ export async function seedE2E(db: Db) {
     { bookId: ciclo!.id, code: 'E2E-CIC-1' },
     { bookId: ciclo!.id, code: 'E2E-CIC-2' },
   ])
-  await db
+  await db.insert(s.students).values({
+    registration: 'E2E-G',
+    name: 'Gabi E2E',
+    className: '3C',
+    guardianPhone: '+5551999990107',
+    telegramChatId: '9007',
+  })
+
+  // US07: aluno sem Telegram vinculado, com lembrete que falhou (tela de avisos).
+  const [hugo] = await db
     .insert(s.students)
+    .values({ registration: 'E2E-H', name: 'Hugo E2E', className: '2B', guardianPhone: '+5551999990108' })
+    .returning()
+  const [hugoCopy] = await db
+    .insert(s.copies)
+    .values({ bookId: ciclo!.id, code: 'E2E-CIC-3', status: 'emprestado' })
+    .returning()
+  const [hugoLoan] = await db
+    .insert(s.loans)
     .values({
-      registration: 'E2E-G',
-      name: 'Gabi E2E',
-      className: '3C',
-      guardianPhone: '+5551999990107',
-      telegramChatId: '9007',
+      copyId: hugoCopy!.id,
+      studentId: hugo!.id,
+      loanedAt: addDays(today, -12),
+      dueDate: day(2),
+      createdBy: roseli!.id,
     })
+    .returning()
+  await db.insert(s.notifications).values({
+    kind: 'lembrete',
+    loanId: hugoLoan!.id,
+    recipient: '',
+    body: 'Lembrete E2E',
+    status: 'falhou',
+    error: 'Responsável sem Telegram vinculado. Envie o link de vínculo pela tela do aluno.',
+  })
 }
