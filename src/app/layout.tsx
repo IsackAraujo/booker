@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from 'next'
 import Link from 'next/link'
+import { navFor } from '@/components/nav'
+import { currentUser } from '@/lib/session'
+import { logoutAction } from '@/modules/users/actions'
+import { ROLE_LABEL } from '@/modules/users/rules'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -9,19 +13,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { width: 'device-width', initialScale: 1 }
 
-// Cada história acrescenta aqui a sua entrada de menu.
-const nav: { href: string; label: string }[] = [
-  { href: '/acervo', label: 'Acervo' },
-  { href: '/alunos', label: 'Alunos' },
-  { href: '/balcao/emprestimo', label: 'Empréstimo' },
-  { href: '/balcao/devolucao', label: 'Devolução' },
-  { href: '/atrasos', label: 'Atrasos' },
-  { href: '/avisos', label: 'Avisos' },
-  { href: '/reservas/turma', label: 'Reservas de turma' },
-  { href: '/painel', label: 'Painel' },
-]
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const user = await currentUser()
+  const nav = user ? navFor(user.role) : []
   return (
     <html lang="pt-BR">
       <body>
@@ -30,13 +24,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="text-lg font-semibold text-emerald-800">
               Booker
             </Link>
-            <nav className="flex flex-wrap gap-4 text-sm">
+            <nav className="flex flex-1 flex-wrap gap-4 text-sm">
               {nav.map((item) => (
                 <Link key={item.href} href={item.href} className="text-slate-600 hover:text-slate-900">
                   {item.label}
                 </Link>
               ))}
             </nav>
+            {user && (
+              <form action={logoutAction} className="flex items-center gap-3 text-sm">
+                <span className="text-slate-600" data-testid="user-name">
+                  {user.name} <span className="text-slate-400">({ROLE_LABEL[user.role]})</span>
+                </span>
+                <button className="text-emerald-800 underline">Sair</button>
+              </form>
+            )}
           </div>
         </header>
         <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>

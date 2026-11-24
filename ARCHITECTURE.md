@@ -52,7 +52,7 @@ Aplicação web única (monólito) usada por quatro públicos:
 | ORM / migrações | **Drizzle ORM + drizzle-kit** | schema em TypeScript, SQL previsível, roda também sobre PGlite nos testes |
 | Banco em teste/dev local | **PGlite** (Postgres em WASM, in-process) | Postgres de verdade sem Docker; cada teste ganha um banco limpo em milissegundos |
 | Validação | **Zod** | mesmo schema valida formulário, Server Action e planilha importada |
-| Autenticação | **Auth.js** (Credentials: e-mail + senha com hash bcrypt) | sessão por cookie, perfis no token; sem dependência de Google/Microsoft da escola |
+| Autenticação | **Sessão própria em cookie assinado** (`jose`, JWT HS256) + bcrypt (ADR 9) | segue o guia de autenticação do Next.js 16; sem dependência de Google/Microsoft da escola |
 | Planilha | **ExcelJS** (`.xlsx`) + parser CSV | importação de alunos (US02) e exportação de relatório (US14) |
 | Datas | **date-fns** + `date-fns-tz`, fuso `America/Sao_Paulo` | prazos são datas de calendário escolar, não instantes |
 | Mensageria | **Telegram Bot API** atrás de `MessageSender` (ADR 8) | gratuito, sem aprovação de modelos; em teste usa `FakeMessageSender` |
@@ -167,8 +167,12 @@ Toda regra abaixo tem função em `rules.ts` **e** teste com o identificador do 
 
 ## 6. Autenticação e autorização
 
-- Login por e-mail e senha (Auth.js Credentials). Senha com bcrypt. Sessão em cookie `httpOnly`.
-- Middleware do Next bloqueia qualquer rota de `(app)` sem sessão (US03: "nenhuma funcionalidade sem identificação").
+- Login por e-mail e senha em `/login` (ADR 9). Senha com bcrypt; mensagem única para e-mail ou senha errados.
+- Sessão em cookie `httpOnly` (`booker_session`): JWT HS256 assinado com `AUTH_SECRET` (biblioteca `jose`), válido por 10 horas. A cada requisição o usuário é conferido no banco: quem foi desativado perde o acesso na hora.
+- `src/proxy.ts` (o antigo middleware, renomeado no Next 16) manda para `/login` quem não tem cookie de sessão; `guardPage` faz o mesmo nas páginas e mostra "sem acesso" para perfil errado (US03-CA1 e CA2). Rotas públicas: `/login`, o webhook do Telegram e `/api/cron/*` (protegidas por segredo).
+- Usuários: a bibliotecária cadastra, desativa e redefine senha em `/usuarios`. Sempre sobra uma bibliotecária ativa. A primeira é criada com `npm run user:create`.
+- Histórico (US03-CA4): `/historico`, por período e usuário, somente leitura, para bibliotecária e coordenação. Entradas no sistema também são registradas.
+- Sessão de desenvolvimento (`DEV_SESSION_ROLE`, cookie `dev_role`) só vale fora de produção e sem login; é usada pelos E2E.
 - Autorização **no servidor**, em toda Server Action, com `requireRole(...)`. Esconder botão na tela não é autorização.
 
 | Função | bibliotecaria | professor | coordenacao |
@@ -241,7 +245,8 @@ Formato: data · decisão · motivo · alternativas descartadas.
 2. **2026-11-10 · PostgreSQL com Drizzle; PGlite em testes e dev.** Constraints do banco reforçam regras críticas; PGlite dá Postgres real sem Docker (as máquinas do time não têm Docker). Descartado: SQLite (diferenças de SQL em relação à produção), Prisma (não roda sobre PGlite de forma estável).
 3. **2026-11-10 · Aluno sem login no MVP.** Contato com o aluno é pelo responsável, via mensagem (Telegram desde a ADR 8); reduz escopo de autenticação. Revisitar se US12 exigir autoatendimento.
 4. **2026-11-10 · Parâmetros da escola em tabela `settings`.** Prazos e limites ainda não confirmados; mudar não exige deploy.
-5. **2026-11-10 · Sessão de desenvolvimento até o login existir.** `src/lib/session.ts` tem um provedor trocável; enquanto a T3.1 (SEB-32) não liga o Auth.js, `DEV_SESSION_ROLE` faz o app usar o usuário do seed com aquele perfil. Ignorado quando `NODE_ENV=production`. A T3.1 deve registrar o provedor real com `setSessionProvider` e remover esta ADR.
+5. **2026-11-10 · Sessão de desenvolvimento.** `DEV_SESSION_ROLE` faz o app usar o usuário do seed com aquele perfil quando não há login. Ignorado em produção. Desde a ADR 9 só serve aos E2E e ao desenvolvimento local (cookie `dev_role=none` simula quem não entrou).
 6. **2026-11-10 · Conexão guardada em `globalThis`.** No Next, páginas e Server Actions podem carregar cópias diferentes de `src/db/client.ts`; com PGlite em memória cada cópia teria um banco próprio.
 7. **2026-11-10 · Definição dos totais do painel (US13).** *Disponíveis*: exemplares disponíveis agora (não dependem de período nem turma, porque exemplar não pertence a turma). *Emprestados*: empréstimos feitos no período. *Atrasados*: prazo no período e devolvido com atraso ou ainda vencido. *Perdidos*: devoluções registradas como perdido no período. Período padrão: mês atual. A confirmar com a coordenação (Mariana).
 8. **2026-11-24 · Telegram no lugar do WhatsApp.** Decisão do time. A Bot API do Telegram é gratuita, não exige conta empresarial nem aprovação de modelos de mensagem, e o bot é criado em minutos pelo @BotFather. Contrapartida: o bot só escreve para quem iniciou conversa com ele, então cada responsável precisa abrir o link de vínculo uma vez; quem não abrir aparece como "sem Telegram" nas telas de atrasos e avisos. Descartado: WhatsApp Business Cloud API (conta Meta verificada, número dedicado e modelos aprovados).
+9. **2026-11-24 · Login com sessão própria em vez do Auth.js.** O Auth.js v5 para Next 16 ainda está em beta. O guia oficial de autenticação do Next.js 16 recomenda sessão sem estado em cookie assinado com `jose`, que cobre o que a US03 pede (e-mail e senha, perfis, sessão por turno) com menos dependências. O usuário é conferido no banco a cada requisição, então desativar alguém corta o acesso na hora. Revisitar se a escola quiser entrar com conta Google ou Microsoft.
