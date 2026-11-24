@@ -22,6 +22,13 @@
       "when": 1795560482034,
       "tag": "0002_telegram",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795562348489,
+      "tag": "0003_limite_login",
+      "breakpoints": true
     }
   ]
 }

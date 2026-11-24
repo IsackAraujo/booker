@@ -207,6 +207,17 @@ export const auditLog = pgTable(
   (t) => [index().on(t.createdAt), index().on(t.userId)],
 )
 
+// SEB-52: tentativas de login com senha errada, para bloquear quem testa muitas senhas seguidas.
+export const loginFailures = pgTable(
+  'login_failures',
+  {
+    id: serial().primaryKey(),
+    email: text().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index().on(t.email, t.createdAt)],
+)
+
 export const settings = pgTable(
   'settings',
   {

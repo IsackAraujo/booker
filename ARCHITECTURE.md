@@ -167,7 +167,7 @@ Toda regra abaixo tem função em `rules.ts` **e** teste com o identificador do 
 
 ## 6. Autenticação e autorização
 
-- Login por e-mail e senha em `/login` (ADR 9). Senha com bcrypt; mensagem única para e-mail ou senha errados.
+- Login por e-mail e senha em `/login` (ADR 9). Senha com bcrypt; mensagem única para e-mail ou senha errados. Depois de 5 erros em 15 minutos para o mesmo e-mail, novas tentativas são recusadas por 15 minutos (tabela `login_failures`, SEB-52).
 - Sessão em cookie `httpOnly` (`booker_session`): JWT HS256 assinado com `AUTH_SECRET` (biblioteca `jose`), válido por 10 horas. A cada requisição o usuário é conferido no banco: quem foi desativado perde o acesso na hora.
 - `src/proxy.ts` (o antigo middleware, renomeado no Next 16) manda para `/login` quem não tem cookie de sessão; `guardPage` faz o mesmo nas páginas e mostra "sem acesso" para perfil errado (US03-CA1 e CA2). Rotas públicas: `/login`, o webhook do Telegram e `/api/cron/*` (protegidas por segredo).
 - Usuários: a bibliotecária cadastra, desativa e redefine senha em `/usuarios`. Sempre sobra uma bibliotecária ativa. A primeira é criada com `npm run user:create`.
