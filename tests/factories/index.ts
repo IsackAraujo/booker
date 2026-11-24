@@ -66,6 +66,7 @@ export async function makeStudent(
       name: `Aluno ${n}`,
       className: '5A',
       guardianPhone: '+5551999990000',
+      telegramChatId: `chat-${n}`,
       ...over,
     })
     .returning()

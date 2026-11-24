@@ -5,6 +5,7 @@ import { getDb } from '@/db/client'
 import { systemClock } from '@/lib/clock'
 import { getStudent, pendingLoans } from '@/modules/students/service'
 import { StudentForm } from '../student-form'
+import { TelegramCard } from './telegram-card'
 import { PendingList, TransferStudent } from './transfer-student'
 
 export const dynamic = 'force-dynamic'
@@ -24,6 +25,7 @@ export default async function EditarAlunoPage({ params }: { params: Promise<{ id
     <section className="space-y-6">
       <h1 className="text-2xl font-semibold">Editar aluno</h1>
       <StudentForm student={student} />
+      <TelegramCard studentId={student.id} />
 
       <div className="card max-w-lg space-y-3">
         <h2 className="text-lg font-semibold">Transferência</h2>

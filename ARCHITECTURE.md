@@ -15,9 +15,9 @@ Aplicação web única (monólito) usada por quatro públicos:
 | `bibliotecaria` | Roseli | computador do balcão | cadastro, empréstimo, devolução, cobrança, histórico, painel |
 | `professor` | Genilse | celular | consulta ao acervo, reserva para turma, acompanhamento da turma |
 | `coordenacao` | Mariana | computador ou celular | painel e relatórios |
-| aluno (sem login) | Raissa | WhatsApp | recebe lembretes e avisos; a fila de reserva é registrada pela bibliotecária |
+| aluno (sem login) | Raissa | Telegram (do responsável) | recebe lembretes e avisos; a fila de reserva é registrada pela bibliotecária |
 
-> O aluno **não tem login** no MVP. A reserva da fila (US12) é registrada no balcão pela bibliotecária e o aluno é avisado pelo WhatsApp. Se o time decidir dar acesso ao aluno, registrar como nova ADR.
+> O aluno **não tem login** no MVP. A reserva da fila (US12) é registrada no balcão pela bibliotecária e o responsável é avisado pelo Telegram. Se o time decidir dar acesso ao aluno, registrar como nova ADR.
 
 ```
  Navegador (desktop / celular)
@@ -31,7 +31,7 @@ Aplicação web única (monólito) usada por quatro públicos:
  └────────┬───────────────────────┬──────────────────┘
           │ Drizzle ORM           │ interface MessageSender
  ┌────────▼────────┐     ┌────────▼────────────────────┐
- │  PostgreSQL     │     │  WhatsApp Business Cloud API │
+ │  PostgreSQL     │     │  Telegram Bot API            │
  └─────────────────┘     └─────────────────────────────┘
           ▲
           │ HTTP com segredo (CRON_SECRET), 1x por dia
@@ -55,7 +55,7 @@ Aplicação web única (monólito) usada por quatro públicos:
 | Autenticação | **Auth.js** (Credentials: e-mail + senha com hash bcrypt) | sessão por cookie, perfis no token; sem dependência de Google/Microsoft da escola |
 | Planilha | **ExcelJS** (`.xlsx`) + parser CSV | importação de alunos (US02) e exportação de relatório (US14) |
 | Datas | **date-fns** + `date-fns-tz`, fuso `America/Sao_Paulo` | prazos são datas de calendário escolar, não instantes |
-| Mensageria | **WhatsApp Business Cloud API** atrás de `MessageSender` | trocável; em teste usa `FakeMessageSender` |
+| Mensageria | **Telegram Bot API** atrás de `MessageSender` (ADR 8) | gratuito, sem aprovação de modelos; em teste usa `FakeMessageSender` |
 | Testes | **Vitest**, **Testing Library**, **Playwright** | ver [TESTING.md](TESTING.md) |
 | Qualidade | **ESLint**, **Prettier**, `tsc --noEmit` | rodam no CI e antes de cada commit |
 | CI | **GitHub Actions** | lint + typecheck + testes em todo PR |
@@ -190,17 +190,19 @@ Toda regra abaixo tem função em `rules.ts` **e** teste com o identificador do 
 
 ## 8. Integrações e rotinas
 
-### WhatsApp
+### Telegram (ADR 8)
 ```ts
 interface MessageSender {
   send(to: string, body: string): Promise<{ ok: true; id: string } | { ok: false; error: string }>
 }
 ```
-- `WhatsAppCloudSender` (produção) usa a Cloud API com template aprovado pela Meta.
+- `TelegramSender` (produção) chama `sendMessage` da Bot API. `to` é o **chat_id** do responsável, não o telefone: o bot só fala com quem já iniciou conversa com ele.
+- **Vínculo:** cada aluno tem um `telegram_link_code`. A bibliotecária envia o link `https://t.me/<bot>?start=<código>` (ou o QR code impresso por turma em `/alunos/telegram`). Ao abrir, o Telegram manda `/start <código>` para `POST /api/telegram/webhook`, que grava o `telegram_chat_id` no aluno e responde confirmando. Irmãos podem ter o mesmo responsável. Desvincular gera um código novo.
+- O webhook só aceita chamadas com o cabeçalho `X-Telegram-Bot-Api-Secret-Token` igual a `TELEGRAM_WEBHOOK_SECRET`. `npm run telegram:setup` confere o token e registra o webhook.
 - `FakeMessageSender` (testes e dev) guarda as mensagens em memória e pode simular falha.
-- Escolhido por variável de ambiente `MESSAGE_SENDER=whatsapp|fake`.
-- Telefone sempre normalizado para E.164 (`+55DDDNÚMERO`) na importação.
-- Toda tentativa vira linha em `notifications`; falhas aparecem para a bibliotecária (US07).
+- Escolhido por `MESSAGE_SENDER=telegram|fake`. Sem token, toda tentativa vira falha com motivo claro.
+- Toda tentativa vira linha em `notifications` (coluna `phone`, propriedade `recipient`, guarda o chat_id); falhas aparecem para a bibliotecária, inclusive "responsável sem Telegram vinculado".
+- O telefone do responsável continua no cadastro, para contato da escola, mas não é usado pelo bot.
 
 ### Rotinas diárias
 | Rota | Horário sugerido | Faz |
@@ -221,9 +223,11 @@ Variáveis em `.env.local` (nunca commitar) e listadas em `.env.example`:
 DATABASE_URL=            # vazio = PGlite local em ./.pglite
 AUTH_SECRET=
 CRON_SECRET=
-MESSAGE_SENDER=fake      # fake | whatsapp
-WHATSAPP_TOKEN=
-WHATSAPP_PHONE_NUMBER_ID=
+MESSAGE_SENDER=fake      # fake | telegram
+TELEGRAM_BOT_TOKEN=      # do @BotFather; nunca commitar
+TELEGRAM_BOT_USERNAME=   # sem @, ex.: biblioteca_escola_bot
+TELEGRAM_WEBHOOK_SECRET= # letras, números, _ e -
+APP_URL=                 # endereço público do site, para o webhook
 TZ=America/Sao_Paulo
 ```
 
@@ -233,8 +237,9 @@ Formato: data · decisão · motivo · alternativas descartadas.
 
 1. **2026-11-10 · Monólito Next.js + TypeScript.** Time pequeno, um só deploy, front e back juntos. Descartado: API separada (Express/FastAPI) + SPA — dobra o trabalho sem ganho no MVP.
 2. **2026-11-10 · PostgreSQL com Drizzle; PGlite em testes e dev.** Constraints do banco reforçam regras críticas; PGlite dá Postgres real sem Docker (as máquinas do time não têm Docker). Descartado: SQLite (diferenças de SQL em relação à produção), Prisma (não roda sobre PGlite de forma estável).
-3. **2026-11-10 · Aluno sem login no MVP.** Contato com aluno é via WhatsApp; reduz escopo de autenticação. Revisitar se US12 exigir autoatendimento.
+3. **2026-11-10 · Aluno sem login no MVP.** Contato com o aluno é pelo responsável, via mensagem (Telegram desde a ADR 8); reduz escopo de autenticação. Revisitar se US12 exigir autoatendimento.
 4. **2026-11-10 · Parâmetros da escola em tabela `settings`.** Prazos e limites ainda não confirmados; mudar não exige deploy.
 5. **2026-11-10 · Sessão de desenvolvimento até o login existir.** `src/lib/session.ts` tem um provedor trocável; enquanto a T3.1 (SEB-32) não liga o Auth.js, `DEV_SESSION_ROLE` faz o app usar o usuário do seed com aquele perfil. Ignorado quando `NODE_ENV=production`. A T3.1 deve registrar o provedor real com `setSessionProvider` e remover esta ADR.
 6. **2026-11-10 · Conexão guardada em `globalThis`.** No Next, páginas e Server Actions podem carregar cópias diferentes de `src/db/client.ts`; com PGlite em memória cada cópia teria um banco próprio.
 7. **2026-11-10 · Definição dos totais do painel (US13).** *Disponíveis*: exemplares disponíveis agora (não dependem de período nem turma, porque exemplar não pertence a turma). *Emprestados*: empréstimos feitos no período. *Atrasados*: prazo no período e devolvido com atraso ou ainda vencido. *Perdidos*: devoluções registradas como perdido no período. Período padrão: mês atual. A confirmar com a coordenação (Mariana).
+8. **2026-11-24 · Telegram no lugar do WhatsApp.** Decisão do time. A Bot API do Telegram é gratuita, não exige conta empresarial nem aprovação de modelos de mensagem, e o bot é criado em minutos pelo @BotFather. Contrapartida: o bot só escreve para quem iniciou conversa com ele, então cada responsável precisa abrir o link de vínculo uma vez; quem não abrir aparece como "sem Telegram" nas telas de atrasos e avisos. Descartado: WhatsApp Business Cloud API (conta Meta verificada, número dedicado e modelos aprovados).

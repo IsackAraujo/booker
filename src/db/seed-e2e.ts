@@ -31,9 +31,27 @@ export async function seedE2E(db: Db) {
   const [raissa, bruno, clara] = await db
     .insert(s.students)
     .values([
-      { registration: 'E2E-R', name: 'Raissa E2E', className: '5A', guardianPhone: '+5551999990101' },
-      { registration: 'E2E-B', name: 'Bruno E2E', className: '6B', guardianPhone: '+5551999990102' },
-      { registration: 'E2E-C', name: 'Clara E2E', className: '7C', guardianPhone: '+5551999990103' },
+      {
+        registration: 'E2E-R',
+        name: 'Raissa E2E',
+        className: '5A',
+        guardianPhone: '+5551999990101',
+        telegramChatId: '9001',
+      },
+      {
+        registration: 'E2E-B',
+        name: 'Bruno E2E',
+        className: '6B',
+        guardianPhone: '+5551999990102',
+        telegramChatId: '9002',
+      },
+      {
+        registration: 'E2E-C',
+        name: 'Clara E2E',
+        className: '7C',
+        guardianPhone: '+5551999990103',
+        telegramChatId: '9003',
+      },
     ])
     .returning()
   await db.insert(s.loans).values([
@@ -84,8 +102,20 @@ export async function seedE2E(db: Db) {
   const [, eva] = await db
     .insert(s.students)
     .values([
-      { registration: 'E2E-D', name: 'Diego E2E', className: '4A', guardianPhone: '+5551999990104' },
-      { registration: 'E2E-E', name: 'Eva E2E', className: '4A', guardianPhone: '+5551999990105' },
+      {
+        registration: 'E2E-D',
+        name: 'Diego E2E',
+        className: '4A',
+        guardianPhone: '+5551999990104',
+        telegramChatId: '9004',
+      },
+      {
+        registration: 'E2E-E',
+        name: 'Eva E2E',
+        className: '4A',
+        guardianPhone: '+5551999990105',
+        telegramChatId: '9005',
+      },
     ])
     .returning()
   await db.insert(s.loans).values({
@@ -103,7 +133,13 @@ export async function seedE2E(db: Db) {
     .returning()
   const [fabio] = await db
     .insert(s.students)
-    .values({ registration: 'E2E-F', name: 'Fabio E2E', className: '8B', guardianPhone: '+5551999990106' })
+    .values({
+      registration: 'E2E-F',
+      name: 'Fabio E2E',
+      className: '8B',
+      guardianPhone: '+5551999990106',
+      telegramChatId: '9006',
+    })
     .returning()
   await db.insert(s.loans).values({
     copyId: transfer!.id,
@@ -124,5 +160,11 @@ export async function seedE2E(db: Db) {
   ])
   await db
     .insert(s.students)
-    .values({ registration: 'E2E-G', name: 'Gabi E2E', className: '3C', guardianPhone: '+5551999990107' })
+    .values({
+      registration: 'E2E-G',
+      name: 'Gabi E2E',
+      className: '3C',
+      guardianPhone: '+5551999990107',
+      telegramChatId: '9007',
+    })
 }

@@ -1,6 +1,6 @@
 # Booker — Sistema de Empréstimos da Biblioteca
 
-Sistema web para a biblioteca escolar: cadastro de acervo e alunos, empréstimo e devolução no balcão, lembretes por WhatsApp, cobrança de atrasos, reservas e relatórios.
+Sistema web para a biblioteca escolar: cadastro de acervo e alunos, empréstimo e devolução no balcão, lembretes por Telegram, cobrança de atrasos, reservas e relatórios.
 
 **Leia antes de codar:**
 - [ARCHITECTURE.md](ARCHITECTURE.md) — stack, pastas, modelo de dados, regras de negócio, perfis, integrações.

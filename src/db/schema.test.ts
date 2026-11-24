@@ -59,7 +59,13 @@ describe('Modelo de dados', () => {
 
   it('[US07-CA1] só um lembrete enviado por empréstimo', async () => {
     const loan = await makeLoan(db)
-    const base = { kind: 'lembrete', loanId: loan.id, phone: '+55', body: 'x', status: 'enviado' } as const
+    const base = {
+      kind: 'lembrete',
+      loanId: loan.id,
+      recipient: '+55',
+      body: 'x',
+      status: 'enviado',
+    } as const
     await db.insert(s.notifications).values(base)
 
     await expect(db.insert(s.notifications).values(base)).rejects.toThrow()
@@ -70,7 +76,7 @@ describe('Modelo de dados', () => {
     await db.insert(s.notifications).values({
       kind: 'lembrete',
       loanId: loan.id,
-      phone: '+55',
+      recipient: '+55',
       body: 'x',
       status: 'falhou',
       error: 'timeout',
@@ -79,7 +85,7 @@ describe('Modelo de dados', () => {
     await expect(
       db
         .insert(s.notifications)
-        .values({ kind: 'lembrete', loanId: loan.id, phone: '+55', body: 'x', status: 'enviado' }),
+        .values({ kind: 'lembrete', loanId: loan.id, recipient: '+55', body: 'x', status: 'enviado' }),
     ).resolves.toBeDefined()
   })
 

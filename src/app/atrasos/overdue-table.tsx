@@ -14,6 +14,7 @@ interface Row {
   dueDate: string
   daysLate: number
   lastNoticeAt: string | null
+  telegramChatId: string | null
 }
 
 const dateBr = (iso: string) => iso.split('-').reverse().join('/')
@@ -76,7 +77,14 @@ export function OverdueTable({ rows }: { rows: Row[] }) {
           <tbody>
             {rows.map((r) => (
               <tr key={r.loanId} className="border-t border-slate-200">
-                <td className="py-2">{r.studentName}</td>
+                <td className="py-2">
+                  {r.studentName}
+                  {!r.telegramChatId && (
+                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">
+                      sem Telegram
+                    </span>
+                  )}
+                </td>
                 <td>{r.className}</td>
                 <td>
                   {r.bookTitle} <span className="text-slate-400">({r.copyCode})</span>

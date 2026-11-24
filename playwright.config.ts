@@ -23,6 +23,7 @@ export default defineConfig({
       DATABASE_URL: '',
       PGLITE_DIR: 'memory://',
       MESSAGE_SENDER: 'fake',
+      TELEGRAM_BOT_USERNAME: 'biblioteca_e2e_bot',
       DEV_SESSION_ROLE: 'bibliotecaria',
       E2E_FIXTURES: '1',
     },

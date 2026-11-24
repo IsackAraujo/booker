@@ -19,6 +19,9 @@ export default async function AlunosPage({ searchParams }: { searchParams: Promi
           <Link href="/alunos/transferidos" className="btn-secondary">
             Transferidos com pendência
           </Link>
+          <Link href="/alunos/telegram" className="btn-secondary">
+            Links do Telegram
+          </Link>
           <Link href="/alunos/importar" className="btn-secondary">
             Importar planilha
           </Link>

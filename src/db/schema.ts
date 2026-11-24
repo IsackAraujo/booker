@@ -81,6 +81,9 @@ export const students = pgTable(
     name: text().notNull(),
     className: text().notNull(),
     guardianPhone: text().notNull(),
+    // Telegram (ADR 8): chat do responsável, gravado quando ele abre o link de vínculo com o código abaixo.
+    telegramChatId: text(),
+    telegramLinkCode: text().unique(),
     status: studentStatus().notNull().default('ativo'),
     transferredAt: timestamp({ withTimezone: true }),
     createdAt: createdAt(),
@@ -171,7 +174,8 @@ export const notifications = pgTable(
     kind: notificationKind().notNull(),
     loanId: integer().references(() => loans.id),
     holdId: integer().references(() => holdQueue.id),
-    phone: text().notNull(),
+    // Destino da mensagem (chat do Telegram). A coluna se chama phone desde a versão com WhatsApp.
+    recipient: text('phone').notNull(),
     body: text().notNull(),
     status: notificationStatus().notNull(),
     error: text(),
