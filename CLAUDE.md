@@ -18,7 +18,7 @@ Sistema web para a biblioteca escolar: cadastro de acervo e alunos, empréstimo 
 - A numeração da task (T4.2) indica a história (US04). **T1.1 (modelo do banco + esqueleto do projeto) vem antes de tudo.**
 
 ## Stack (resumo — detalhes em ARCHITECTURE.md)
-Next.js (App Router) + TypeScript strict · PostgreSQL + Drizzle (PGlite em testes/dev) · Auth.js · Zod · Tailwind + shadcn/ui · Vitest + Testing Library + Playwright.
+Next.js (App Router) + TypeScript strict · PostgreSQL + Drizzle (PGlite em testes/dev) · sessão em cookie assinado (jose) · Zod · Tailwind + shadcn/ui · Vitest + Testing Library + Playwright.
 
 ## Comandos
 > Passam a existir quando a T1.1 criar o esqueleto do projeto.
