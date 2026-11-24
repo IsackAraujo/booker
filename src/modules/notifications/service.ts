@@ -6,13 +6,49 @@ import { BusinessError } from '@/lib/errors'
 import * as audit from '@/modules/audit/service'
 import { daysLate } from '@/modules/loans/rules'
 import { overdueNoticeText } from './rules'
-import type { MessageSender } from './sender'
+import type { MessageSender, SendResult } from './sender'
+
+export const NO_TELEGRAM = 'Responsável sem Telegram vinculado. Envie o link de vínculo pela tela do aluno.'
+
+/**
+ * Envia uma mensagem ao responsável e registra a tentativa em `notifications` (enviado ou falhou, com o motivo).
+ * Sem chat vinculado não há o que enviar: a tentativa fica registrada como falha, para a bibliotecária ver.
+ */
+export async function deliver(
+  db: Db,
+  clock: Clock,
+  sender: MessageSender,
+  input: {
+    kind: 'lembrete' | 'cobranca' | 'reserva_disponivel'
+    loanId?: number
+    chatId: string | null
+    body: string
+    userId?: number
+  },
+): Promise<SendResult> {
+  const result: SendResult = input.chatId
+    ? await sender.send(input.chatId, input.body)
+    : { ok: false, error: NO_TELEGRAM }
+  await db.insert(notifications).values({
+    kind: input.kind,
+    loanId: input.loanId ?? null,
+    recipient: input.chatId ?? '',
+    body: input.body,
+    status: result.ok ? 'enviado' : 'falhou',
+    error: result.ok ? null : result.error,
+    createdBy: input.userId ?? null,
+    createdAt: clock.now(),
+  })
+  return result
+}
 
 export interface OverdueLoan {
   loanId: number
+  studentId: number
   studentName: string
   className: string
-  guardianPhone: string
+  /** Chat do Telegram do responsável; null se ainda não abriu o link de vínculo. */
+  telegramChatId: string | null
   bookTitle: string
   copyCode: string
   dueDate: IsoDate
@@ -40,9 +76,10 @@ export async function listOverdue(
   const rows = await db
     .select({
       loanId: loans.id,
+      studentId: students.id,
       studentName: students.name,
       className: students.className,
-      guardianPhone: students.guardianPhone,
+      telegramChatId: students.telegramChatId,
       bookTitle: books.title,
       copyCode: copies.code,
       dueDate: loans.dueDate,
@@ -87,8 +124,8 @@ export interface NoticeResult {
 }
 
 /**
- * Envia aviso de atraso aos responsáveis (US08-CA3), para um aluno ou para vários. Cada tentativa fica
- * registrada em `notifications` com data e situação (CA4). Só envia para empréstimos que continuam atrasados.
+ * Envia aviso de atraso aos responsáveis pelo Telegram (US08-CA3), para um aluno ou para vários. Cada tentativa
+ * fica registrada em `notifications` com data e situação (CA4). Só envia para empréstimos que continuam atrasados.
  */
 export async function sendOverdueNotices(
   db: Db,
@@ -104,17 +141,12 @@ export async function sendOverdueNotices(
   const result: NoticeResult = { sent: 0, failed: [], skipped: ids.length - overdue.length }
 
   for (const loan of overdue) {
-    const body = overdueNoticeText(loan)
-    const sendResult = await sender.send(loan.guardianPhone, body)
-    await db.insert(notifications).values({
+    const sendResult = await deliver(db, clock, sender, {
       kind: 'cobranca',
       loanId: loan.loanId,
-      phone: loan.guardianPhone,
-      body,
-      status: sendResult.ok ? 'enviado' : 'falhou',
-      error: sendResult.ok ? null : sendResult.error,
-      createdBy: userId,
-      createdAt: clock.now(),
+      chatId: loan.telegramChatId,
+      body: overdueNoticeText(loan),
+      userId,
     })
     if (sendResult.ok) result.sent++
     else result.failed.push({ loanId: loan.loanId, studentName: loan.studentName, error: sendResult.error })

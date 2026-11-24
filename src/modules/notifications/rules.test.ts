@@ -33,17 +33,19 @@ describe('Envio de mensagens', () => {
     expect(sender.sent).toEqual([{ to: '+55', body: 'b' }])
   })
 
-  it('sem integração configurada (T7.1), o envio falha com motivo claro', async () => {
+  it('sem Telegram configurado, o envio falha com motivo claro', async () => {
     delete (globalThis as { __bookerSender?: unknown }).__bookerSender
-    const previous = process.env.MESSAGE_SENDER
-    process.env.MESSAGE_SENDER = 'whatsapp'
+    const previous = { sender: process.env.MESSAGE_SENDER, token: process.env.TELEGRAM_BOT_TOKEN }
+    process.env.MESSAGE_SENDER = 'telegram'
+    delete process.env.TELEGRAM_BOT_TOKEN
     try {
-      expect(await getMessageSender().send('+55', 'x')).toEqual({
+      expect(await getMessageSender().send('123', 'x')).toEqual({
         ok: false,
-        error: 'Envio por WhatsApp ainda não configurado (T7.1).',
+        error: 'Envio pelo Telegram não configurado (TELEGRAM_BOT_TOKEN).',
       })
     } finally {
-      process.env.MESSAGE_SENDER = previous
+      process.env.MESSAGE_SENDER = previous.sender
+      if (previous.token) process.env.TELEGRAM_BOT_TOKEN = previous.token
       delete (globalThis as { __bookerSender?: unknown }).__bookerSender
     }
   })

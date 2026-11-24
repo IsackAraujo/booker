@@ -92,7 +92,7 @@ await makeLoan(db, { student, copy, dueDate: '2026-03-01' }) // empréstimo atra
 Factories existentes (ampliar conforme as tasks): `makeUser`, `makeBook`, `makeCopy`, `makeStudent`, `makeLoan`, `makeClassReservation`, `makeHold`, `makeSettings`.
 
 ### Integrações externas — fakes, nunca rede
-- WhatsApp: `FakeMessageSender` — `sender.sent` lista as mensagens; `sender.failNext('motivo')` simula falha.
+- Telegram: `FakeMessageSender` — `sender.sent` lista as mensagens; `sender.failNext('motivo')` simula falha.
 - Nenhum teste faz chamada HTTP real. Se precisar, é sinal de que falta uma interface.
 
 ### Permissões

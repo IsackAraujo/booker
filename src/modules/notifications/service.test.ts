@@ -85,8 +85,8 @@ describe('US08 Lista de atrasos', () => {
 })
 
 describe('US08 Aviso ao responsável', () => {
-  it('[US08-CA3] envia aviso para um aluno específico, para o telefone do responsável', async () => {
-    const student = await makeStudent(db, { name: 'Raissa', guardianPhone: '+5551988887777' })
+  it('[US08-CA3] envia aviso para um aluno específico, para o Telegram do responsável', async () => {
+    const student = await makeStudent(db, { name: 'Raissa', telegramChatId: '777' })
     const book = await makeBook(db, { title: 'Dom Casmurro' })
     const loan = await makeLoan(db, { student, copy: await makeCopy(db, { book }), dueDate: '2026-03-15' })
     await overdueLoan({ name: 'Outro', className: '5A', title: 'X', dueDate: '2026-03-15' })
@@ -97,7 +97,7 @@ describe('US08 Aviso ao responsável', () => {
     expect(result).toEqual({ sent: 1, failed: [], skipped: 0 })
     expect(sender.sent).toEqual([
       {
-        to: '+5551988887777',
+        to: '777',
         body: overdueNoticeText({
           studentName: 'Raissa',
           bookTitle: 'Dom Casmurro',
@@ -135,15 +135,15 @@ describe('US08 Aviso ao responsável', () => {
     const a = await overdueLoan({ name: 'Ana', className: '5A', title: 'A', dueDate: '2026-03-10' })
     const b = await overdueLoan({ name: 'Bia', className: '5A', title: 'B', dueDate: '2026-03-12' })
     const sender = new FakeMessageSender()
-    sender.failNext('número sem WhatsApp')
+    sender.failNext('bot bloqueado')
 
     const result = await service.sendOverdueNotices(db, clock, sender, userId, [a.id, b.id])
 
     expect(result.sent).toBe(1)
-    expect(result.failed).toEqual([{ loanId: a.id, studentName: 'Ana', error: 'número sem WhatsApp' }])
+    expect(result.failed).toEqual([{ loanId: a.id, studentName: 'Ana', error: 'bot bloqueado' }])
     const rows = await db.select().from(notifications)
     expect(rows.map((r) => [r.loanId, r.status, r.error])).toEqual([
-      [a.id, 'falhou', 'número sem WhatsApp'],
+      [a.id, 'falhou', 'bot bloqueado'],
       [b.id, 'enviado', null],
     ])
     const [row] = (await service.listOverdue(db, clock)).filter((l) => l.loanId === a.id)
@@ -197,5 +197,42 @@ describe('US08 Aviso ao responsável', () => {
       '2026-03-23T13:00:00.000Z',
       '2026-03-20T13:00:00.000Z',
     ])
+  })
+})
+
+describe('SEB-48 Cobrança pelo Telegram', () => {
+  it('envia para o chat do Telegram vinculado ao aluno', async () => {
+    const student = await makeStudent(db, { telegramChatId: '8080' })
+    const loan = await makeLoan(db, { student, dueDate: '2026-03-10' })
+    const sender = new FakeMessageSender()
+
+    await service.sendOverdueNotices(db, clock, sender, userId, [loan.id])
+
+    expect(sender.sent.map((m) => m.to)).toEqual(['8080'])
+    const [n] = await db.select().from(notifications)
+    expect(n).toMatchObject({ recipient: '8080', status: 'enviado' })
+  })
+
+  it('[US08-CA4] responsável sem Telegram: não envia, registra a falha e informa o motivo', async () => {
+    const student = await makeStudent(db, { name: 'Sem Vínculo', telegramChatId: null })
+    const loan = await makeLoan(db, { student, dueDate: '2026-03-10' })
+    const sender = new FakeMessageSender()
+
+    const result = await service.sendOverdueNotices(db, clock, sender, userId, [loan.id])
+
+    expect(sender.sent).toHaveLength(0)
+    expect(result.failed).toEqual([
+      { loanId: loan.id, studentName: 'Sem Vínculo', error: service.NO_TELEGRAM },
+    ])
+    const [n] = await db.select().from(notifications)
+    expect(n).toMatchObject({ status: 'falhou', recipient: '', error: service.NO_TELEGRAM })
+  })
+
+  it('a lista de atrasos mostra quem não tem Telegram vinculado', async () => {
+    await makeLoan(db, { student: await makeStudent(db, { telegramChatId: null }), dueDate: '2026-03-10' })
+
+    const [row] = await service.listOverdue(db, clock)
+
+    expect(row!.telegramChatId).toBeNull()
   })
 })
