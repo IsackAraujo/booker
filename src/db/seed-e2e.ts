@@ -112,4 +112,17 @@ export async function seedE2E(db: Db) {
     dueDate: day(9),
     createdBy: roseli!.id,
   })
+
+  // SEB-49: ciclo completo pela tela (emprestar e devolver), com livro e aluna exclusivos.
+  const [ciclo] = await db
+    .insert(s.books)
+    .values({ title: 'Livro Ciclo E2E', author: 'Autor E2E', category: 'Literatura', ageRange: '8-10' })
+    .returning()
+  await db.insert(s.copies).values([
+    { bookId: ciclo!.id, code: 'E2E-CIC-1' },
+    { bookId: ciclo!.id, code: 'E2E-CIC-2' },
+  ])
+  await db
+    .insert(s.students)
+    .values({ registration: 'E2E-G', name: 'Gabi E2E', className: '3C', guardianPhone: '+5551999990107' })
 }
